@@ -1,0 +1,23 @@
+warning: embedding a large array in contract code increases Wasm size
+  --> $DIR/large_constant_array.rs:6:33
+   |
+LL | const LARGE_ARRAY: [u8; 5000] = [0; 5000]; // Above threshold
+   |                                 ^^^^^^^^^
+   |
+   = help: consider using host-managed `Bytes` or persistent storage for large data
+note: the lint level is defined here
+  --> $DIR/large_constant_array.rs:2:9
+   |
+LL | #![warn(large_constant_array)]
+   |         ^^^^^^^^^^^^^^^^^^^^
+
+warning: embedding a large array in contract code increases Wasm size
+  --> $DIR/large_constant_array.rs:10:14
+   |
+LL |     let _b = [0u8; 5000]; // Above threshold
+   |              ^^^^^^^^^^^
+   |
+   = help: consider using host-managed `Bytes` or persistent storage for large data
+
+warning: 2 warnings emitted
+

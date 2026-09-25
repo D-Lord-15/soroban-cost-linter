@@ -32,6 +32,7 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 
 mod discarded_storage_read;
+mod large_constant_array;
 mod ledger_context_read_in_loop;
 mod option_wrapping_in_storage;
 mod redundant_require_auth;
@@ -96,6 +97,7 @@ pub fn register_lints(sess: &rustc_session::Session, lint_store: &mut LintStore)
         OPTION_WRAPPING_IN_STORAGE,
         LEDGER_CONTEXT_READ_IN_LOOP,
         REDUNDANT_REQUIRE_AUTH,
+        LARGE_CONSTANT_ARRAY,
     ]);
 
     // Restored with the pass implementations 3e70958 deleted.
@@ -149,6 +151,7 @@ pub fn register_lints(sess: &rustc_session::Session, lint_store: &mut LintStore)
         .register_late_pass(|_| Box::new(option_wrapping_in_storage::OptionWrappingInStorage));
     lint_store.register_late_pass(|_| Box::new(redundant_require_auth::RedundantRequireAuth));
     lint_store.register_late_pass(|_| Box::new(unbounded_input_loop::UnboundedInputLoop));
+    lint_store.register_late_pass(|_| Box::new(large_constant_array::LargeConstantArray));
 }
 
 // A `Host` handle is a VM-boundary object: obtaining one inside a loop pays
@@ -390,6 +393,12 @@ rustc_session::declare_lint! {
     pub REDUNDANT_REQUIRE_AUTH,
     Warn,
     "require_auth called more than once on the same address in a single function body"
+}
+
+rustc_session::declare_lint! {
+    pub LARGE_CONSTANT_ARRAY,
+    Warn,
+    "embedding a large constant array in contract code"
 }
 
 pub struct SorobanCostLints;
@@ -651,6 +660,12 @@ pub const LINT_METADATA: &[LintMeta] = &[
         description: "Reads a ledger context value (sequence, timestamp, network_id) inside a loop",
         rationale: "Ledger context values are invariant during a single invocation; reading them in a loop performs repeated host calls for the same value.",
     },
+    LintMeta {
+        name: "large_constant_array",
+        category: LintCategory::Memory,
+        description: "embedding a large constant array in contract code",
+        rationale: "Embedding large constant arrays in the contract code increases Wasm binary size, which drives up deployment costs and loads. Consider using host-managed Bytes or storing large data in persistent storage.",
+    },
 ];
 
 dylint_lint_impl! {
@@ -695,6 +710,7 @@ dylint_lint_impl! {
         OPTION_WRAPPING_IN_STORAGE,
         LEDGER_CONTEXT_READ_IN_LOOP,
         REDUNDANT_REQUIRE_AUTH,
+        LARGE_CONSTANT_ARRAY,
     ]
 }
 

@@ -51,6 +51,7 @@ See the [Cost Rationale](../cost_rationale.md) page for a full explanation of So
 | [`option_wrapping_in_storage`](option_wrapping_in_storage.md) | `warn` | stores an Option<T> in storage where the key already models absence |
 | [`ledger_context_read_in_loop`](ledger_context_read_in_loop.md) | `warn` | reads a ledger context value inside a loop when it cannot change during the invocation |
 | [`redundant_require_auth`](redundant_require_auth.md) | `warn` | require_auth called more than once on the same address in a single function body |
+| [`large_constant_array`](large_constant_array.md) | `warn` | embedding a large constant array in contract code |
 
 {% hint style="info" %}
 Severities can be adjusted per-workspace via `budget.toml` — see the [Integration Guide](../integration.md).
