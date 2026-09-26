@@ -106,6 +106,7 @@ If you prefer to set up the toolchain on your machine directly:
 - Update the `LINT_METADATA` entry with the correct category.
 - Measure linter overhead with `cargo bench -p cargo-cost-lint`.
 - Run `cargo run -p generate-lint-docs` from the workspace root to regenerate `docs/lints/README.md` and `docs/lints/lint-registry.json`.
+- Run `make sync-lint-data` to refresh the snapshot in `cargo-cost-lint/lint-data/` that a packaged `cargo-cost-lint` builds from.
 
 ### Lint Naming Convention
 

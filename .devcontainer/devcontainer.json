@@ -1,9 +1,6 @@
 {
     "name": "soroban-cost-linter",
-    "build": {
-        "dockerfile": "../Dockerfile",
-        "context": ".."
-    },
+    "image": "ghcr.io/tollcraft/soroban-cost-linter:latest",
     "customizations": {
         "vscode": {
             "extensions": [

@@ -20,3 +20,45 @@ impl MemoryInputDecoderContract {
         Symbol::new(&env, "decode")
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use soroban_sdk::{vec, Env, Symbol};
+
+    #[test]
+    fn test_verify_checksums_valid() {
+        let env = Env::default();
+        let payload = vec![&env, 10, 20, 30];
+        assert!(MemoryInputDecoderContract::verify_checksums(env.clone(), payload, 60));
+    }
+
+    #[test]
+    fn test_verify_checksums_invalid() {
+        let env = Env::default();
+        let payload = vec![&env, 10, 20, 30];
+        assert!(!MemoryInputDecoderContract::verify_checksums(env.clone(), payload, 99));
+    }
+
+    #[test]
+    fn test_verify_checksums_empty() {
+        let env = Env::default();
+        let payload = vec![&env];
+        assert!(MemoryInputDecoderContract::verify_checksums(env.clone(), payload, 0));
+    }
+
+    #[test]
+    fn test_verify_checksums_wrapping() {
+        let env = Env::default();
+        // Test wrapping behavior directly. u32::MAX + 1 wraps to 0.
+        let payload = vec![&env, u32::MAX, 1];
+        assert!(MemoryInputDecoderContract::verify_checksums(env.clone(), payload, 0));
+    }
+
+    #[test]
+    fn test_get_action_tag() {
+        let env = Env::default();
+        let tag = MemoryInputDecoderContract::get_action_tag(env.clone());
+        assert_eq!(tag, Symbol::new(&env, "decode"));
+    }
+}

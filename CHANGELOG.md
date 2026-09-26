@@ -37,9 +37,34 @@ and this project adheres to Semantic Versioning.
 - New lint `unbounded_recursion` detecting direct and mutual recursion whose depth is driven by caller-supplied input (e.g. recursion over a caller-supplied `Vec`/`&[T]` length), reporting the full call cycle (`process -> process_child -> process`).
 - New lint `cross_contract_result_discarded` detecting `Env::invoke_contract` calls whose non-unit return value is discarded (bound to `_` or dropped as a bare statement), since a cross-contract invocation pays for a full host dispatch, metered execution, and the return value's conversion back across the boundary.
 - New lint `storage_read_never_written` detecting storage reads of a key that is never written by a statically-known `set`/`has` anywhere else in the crate. It accumulates reads and writes across the whole crate and reports only at the end of the crate, firing at the read site. Defaults to `warn` (not `deny`) because it is heuristic: the write may live in another contract (cross-contract state sharing), or the key may be constructed dynamically. Dynamic keys neither fire nor suppress findings about unrelated static keys.
+- Expanded `loop_invariant_storage_access` test coverage from 2 to 11 cases, pinning down the paths the loop-dependence analysis can take: a loop-bound receiver, a loop-mutated key, a per-iteration `let` key, a hoisted key, a `while` loop, a non-terminal method (`extend_ttl`), a closure body, a nested loop, and `#[allow]` suppression. The new cases also pin the per-call granularity: when only an argument is loop-varying, the argument-bearing call is exempt while the invariant receiver chain (`env.storage()`, `.instance()`) is still reported.
+- Expanded the `require_auth_in_loop`, `storage_write_without_read`, `redundant_require_auth` and `soroban_redundant_storage_read` fixtures, and added unit tests for the extracted passes (method tables, storage-accessor paths, and the read/write pairing analysis) so the reachable branches are pinned before the modules are refactored.
 
 ### Changed
 
+- `soroban_cost_lints` internal layout: the `require_auth_in_loop`,
+  `storage_write_without_read`, `redundant_require_auth` and
+  `soroban_redundant_storage_read` lint passes moved out of `src/lib.rs` into
+  their own modules, matching the lints already organised that way. Detection
+  behaviour, messages, help text and diagnostic ordering are unchanged — apart
+  from `soroban_redundant_storage_read`, whose storage-accessor test now uses a
+  cached def-path string comparison instead of three `match_soroban_def_path`
+  walks per call, so it allocates no intermediate path strings.
+- `soroban_cost_lints` internal layout: the `unwrap_on_storage_get`,
+  `loop_invariant_storage_access` and `string_concat_in_loop` lint passes moved
+  out of `src/lib.rs` into their own modules, matching the six lints already
+  organised that way. Lint names, levels, messages, help text, detection
+  behaviour and diagnostic ordering are unchanged — the golden `ui/*.stderr`
+  files and the corpus baseline are byte-identical.
+- Removed a dead second `unbounded_input_loop` implementation that was left in
+  `src/lib.rs` (a `check_fn`-based pass with its own `ParamHirIdCollector` and
+  `UnboundedLoopWalker`); only the `src/unbounded_input_loop.rs` pass is
+  registered, so the duplicate was never run.
+- `unbounded_input_loop` now reuses the loop body that the `for`-loop match
+  already yields instead of desugaring the loop a second time to recover it,
+  and dropped a redundant `ends_with` scan in its collection type test
+  (a `contains` hit already implies the suffix match).
+- `cargo-cost-lint` can now be packaged and published: `build.rs` falls back to a bundled snapshot in `cargo-cost-lint/lint-data/` when built outside the workspace, `publish = false` is removed, and the manifest has a `description`. Refresh the snapshot with `make sync-lint-data`; a test fails when it drifts.
 - `unnecessary_host_function_call` now covers every host accessor reachable from
   `Env` — `crypto()`, `prng()`, `events()`, `deployer()` and
   `current_contract_address()` alongside `ledger()` — and no longer reports

@@ -267,6 +267,12 @@ A user-facing lint needs a page under [`docs/lints`](docs/lints/README.md). Incl
 cargo run -p generate-lint-docs
 ```
 
+`cargo-cost-lint` also bundles a snapshot of `lib.rs`, the lint pages, and `rust-toolchain` in `cargo-cost-lint/lint-data/`, so the crate still builds once packaged. Refresh it after changing any of those files; `cargo test --workspace` fails while it is out of date:
+
+```bash
+make sync-lint-data
+```
+
 Then review the diff on `docs/lints/` and update the top-level `README.md` and `soroban_cost_lints/README.md` lint tables if appropriate. Keep the declared name, metadata name, documentation links, and examples consistent.
 
 Finally, follow the contribution process in [`CONTRIBUTING.md`](CONTRIBUTING.md). The pull request should explain the cost model motivation, summarize the false-positive safeguards, include the UI coverage, and include `Closes #[this issue]` in the PR description as required by the project issue template.

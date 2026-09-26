@@ -5,7 +5,6 @@ authors = ["Tollcraft Team <https://tollcraft.gitbook.io/docs>"]
 description = "Dylint library providing Soroban cost-analysis lints for cargo-cost-lint"
 edition = "2024"
 license = "Apache-2.0"
-publish = false
 
 [lib]
 crate-type = ["cdylib"]

@@ -191,22 +191,6 @@ fn generate_readme(entries: &[LintEntry]) -> String {
     md
 }
 
-fn generate_registry(entries: &[LintEntry]) -> String {
-    let registry: Vec<serde_json::Value> = entries
-        .iter()
-        .map(|e| {
-            serde_json::json!({
-                "name": e.name_doc,
-                "default_level": e.level.to_lowercase(),
-                "description": e.description,
-                "category": e.category.as_deref().unwrap_or("Other"),
-                "docs_path": format!("docs/lints/{}.md", e.name_doc),
-            })
-        })
-        .collect();
-    serde_json::to_string_pretty(&registry).unwrap()
-}
-
 fn generate_catalog(entries: &[LintEntry]) -> String {
     let mut md = String::new();
     md.push_str("# Lint Catalog\n\n");
@@ -253,7 +237,6 @@ fn main() {
 
     let lib_path = resolve_path("soroban_cost_lints/src/lib.rs");
     let readme_path = resolve_path("docs/lints/README.md");
-    let registry_path = resolve_path("docs/lints/lint-registry.json");
     let catalog_path = resolve_path("docs/lint_catalog.md");
 
     if !lib_path.exists() {
@@ -269,7 +252,6 @@ fn main() {
     let entries = parse_lib_rs(&content);
 
     let readme = generate_readme(&entries);
-    let registry_json = generate_registry(&entries);
     let catalog = generate_catalog(&entries);
 
     if check_mode {
@@ -278,16 +260,11 @@ fn main() {
         // comparison reports every generated file as stale on that host.
         let normalise = |s: String| s.replace("\r\n", "\n");
         let current_readme = normalise(fs::read_to_string(&readme_path).unwrap_or_default());
-        let current_registry = normalise(fs::read_to_string(&registry_path).unwrap_or_default());
         let current_catalog = normalise(fs::read_to_string(&catalog_path).unwrap_or_default());
 
         let mut exit_code = 0;
         if current_readme != readme {
             eprintln!("❌ docs/lints/README.md is out of date. Run `cargo run -p generate-lint-docs` from workspace root to regenerate.");
-            exit_code = 1;
-        }
-        if current_registry != registry_json {
-            eprintln!("❌ docs/lints/lint-registry.json is out of date. Run `cargo run -p generate-lint-docs` from workspace root to regenerate.");
             exit_code = 1;
         }
         if current_catalog != catalog {
@@ -304,13 +281,6 @@ fn main() {
         }
         fs::write(&readme_path, &readme).expect("Failed to write README.md");
         println!("✅ Wrote {:?}", readme_path);
-
-        if let Some(parent) = registry_path.parent() {
-            fs::create_dir_all(parent).ok();
-        }
-        fs::write(&registry_path, &registry_json).expect("Failed to write lint-registry.json");
-        println!("✅ Wrote {:?}", registry_path);
-
         if let Some(parent) = catalog_path.parent() {
             fs::create_dir_all(parent).ok();
         }
@@ -611,63 +581,6 @@ multiline description"
     }
 
     // ------------------------------------------------------------------
-    // generate_registry tests
-    // ------------------------------------------------------------------
-
-    #[test]
-    fn generate_registry_empty() {
-        let json = generate_registry(&[]);
-        assert_eq!(json, "[]");
-    }
-
-    #[test]
-    fn generate_registry_single_lint() {
-        let entries = parse_lib_rs(SINGLE_LINT);
-        let json = generate_registry(&entries);
-        let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
-        assert!(parsed.is_array());
-        let arr = parsed.as_array().unwrap();
-        assert_eq!(arr.len(), 1);
-        assert_eq!(arr[0]["name"], "soroban_storage_in_loop");
-        assert_eq!(arr[0]["default_level"], "deny");
-        assert_eq!(arr[0]["description"], "storage operations inside a loop");
-        assert_eq!(arr[0]["category"], "Other");
-        assert_eq!(arr[0]["docs_path"], "docs/lints/soroban_storage_in_loop.md");
-    }
-
-    #[test]
-    fn generate_registry_with_category() {
-        let input = format!(
-            "{}\n\n{}",
-            SINGLE_LINT,
-            r#"
-                pub const LINT_METADATA: &[LintMetadata] = &[
-                    LintMetadata {
-                        lint: SOROBAN_STORAGE_IN_LOOP,
-                        category: LintCategory::StorageOperations,
-                    },
-                ];
-            "#
-        );
-        let entries = parse_lib_rs(&input);
-        let json = generate_registry(&entries);
-        let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
-        let arr = parsed.as_array().unwrap();
-        assert_eq!(arr[0]["category"], "StorageOperations");
-    }
-
-    #[test]
-    fn generate_registry_two_lints() {
-        let entries = parse_lib_rs(TWO_LINTS);
-        let json = generate_registry(&entries);
-        let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
-        let arr = parsed.as_array().unwrap();
-        assert_eq!(arr.len(), 2);
-        assert_eq!(arr[0]["name"], "soroban_storage_in_loop");
-        assert_eq!(arr[1]["name"], "redundant_env_clone");
-    }
-
-    // ------------------------------------------------------------------
     // Golden-file tests — compare generated output against the real files
     // ------------------------------------------------------------------
 
@@ -761,11 +674,8 @@ multiline description"
         fs::create_dir_all(readme_path.parent().unwrap()).unwrap();
         fs::write(&readme_path, "STALE CONTENT").unwrap();
 
-        let registry_path = root.join("docs/lints/lint-registry.json");
         let entries = parse_lib_rs(SINGLE_LINT);
-        let correct_registry = generate_registry(&entries);
         let correct_catalog = generate_catalog(&entries);
-        fs::write(&registry_path, &correct_registry).unwrap();
         let catalog_path = root.join("docs/lint_catalog.md");
         fs::write(&catalog_path, &correct_catalog).unwrap();
 
@@ -785,43 +695,6 @@ multiline description"
     }
 
     #[test]
-    fn check_mode_fails_when_registry_is_stale() {
-        let bin = find_binary();
-        let tmp = tempfile::tempdir().unwrap();
-        let root = tmp.path();
-
-        let fake_lib = root.join("soroban_cost_lints/src/lib.rs");
-        fs::create_dir_all(fake_lib.parent().unwrap()).unwrap();
-        fs::write(&fake_lib, SINGLE_LINT).unwrap();
-
-        let readme_path = root.join("docs/lints/README.md");
-        fs::create_dir_all(readme_path.parent().unwrap()).unwrap();
-        let entries = parse_lib_rs(SINGLE_LINT);
-        let correct_readme = generate_readme(&entries);
-        let correct_catalog = generate_catalog(&entries);
-        fs::write(&readme_path, &correct_readme).unwrap();
-        let catalog_path = root.join("docs/lint_catalog.md");
-        fs::write(&catalog_path, &correct_catalog).unwrap();
-
-        let registry_path = root.join("docs/lints/lint-registry.json");
-        fs::write(&registry_path, "STALE CONTENT").unwrap();
-
-        let catalog_path = root.join("docs/lint_catalog.md");
-        fs::create_dir_all(catalog_path.parent().unwrap()).unwrap();
-        let correct_catalog = generate_catalog(&entries);
-        fs::write(&catalog_path, &correct_catalog).unwrap();
-
-        let status = Command::new(&bin)
-            .args(["--check", "--workspace-root", root.to_str().unwrap()])
-            .status()
-            .expect("Failed to execute binary");
-        assert!(
-            !status.success(),
-            "--check should fail when registry is stale"
-        );
-    }
-
-    #[test]
     fn check_mode_fails_when_catalog_is_stale() {
         let bin = find_binary();
         let tmp = tempfile::tempdir().unwrap();
@@ -835,9 +708,6 @@ multiline description"
         let readme_path = root.join("docs/lints/README.md");
         fs::create_dir_all(readme_path.parent().unwrap()).unwrap();
         fs::write(&readme_path, generate_readme(&entries)).unwrap();
-
-        let registry_path = root.join("docs/lints/lint-registry.json");
-        fs::write(&registry_path, generate_registry(&entries)).unwrap();
 
         let catalog_path = root.join("docs/lint_catalog.md");
         fs::write(&catalog_path, "STALE CONTENT").unwrap();
@@ -868,9 +738,6 @@ multiline description"
         fs::create_dir_all(readme_path.parent().unwrap()).unwrap();
         fs::write(&readme_path, generate_readme(&entries)).unwrap();
 
-        let registry_path = root.join("docs/lints/lint-registry.json");
-        fs::write(&registry_path, generate_registry(&entries)).unwrap();
-
         let catalog_path = root.join("docs/lint_catalog.md");
         fs::write(&catalog_path, generate_catalog(&entries)).unwrap();
 
@@ -882,43 +749,5 @@ multiline description"
             status.success(),
             "--check should pass when all generated files match"
         );
-    }
-
-    // ------------------------------------------------------------------
-    // Edge case: empty registry on parse failure must not silently pass --check
-    // ------------------------------------------------------------------
-
-    #[test]
-    fn empty_registry_on_malformed_input_does_not_match_correct_file() {
-        // If the parser silently returns 0 entries for malformed input,
-        // the generated registry would be "[]".  Verify that this does NOT
-        // match the real (non-empty) lint-registry.json.
-        let entries = parse_lib_rs(MALFORMED_NO_CLOSE);
-        assert!(
-            entries.is_empty(),
-            "malformed input should produce no entries"
-        );
-        let generated_json = generate_registry(&entries);
-        assert_eq!(generated_json, "[]");
-
-        // The real registry is not empty.
-        let ws = workspace_root();
-        let real_json = fs::read_to_string(ws.join("docs/lints/lint-registry.json"))
-            .expect("Failed to read docs/lints/lint-registry.json");
-        let real_json = real_json.replace("\r\n", "\n");
-        assert_ne!(generated_json, real_json,
-            "A parse failure that produces an empty registry must NOT match the real file — that would silently wipe documentation");
-    }
-
-    #[test]
-    fn non_pub_input_produces_empty_output_not_matching_real_file() {
-        let entries = parse_lib_rs(NON_PUB_NAME);
-        assert!(entries.is_empty());
-        let generated_json = generate_registry(&entries);
-        let ws = workspace_root();
-        let real_json = fs::read_to_string(ws.join("docs/lints/lint-registry.json"))
-            .expect("Failed to read docs/lints/lint-registry.json");
-        let real_json = real_json.replace("\r\n", "\n");
-        assert_ne!(generated_json, real_json);
     }
 }

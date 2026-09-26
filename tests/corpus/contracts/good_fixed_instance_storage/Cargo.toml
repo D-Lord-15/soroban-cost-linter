@@ -7,3 +7,5 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 soroban-sdk = "26"
+
+[workspace]

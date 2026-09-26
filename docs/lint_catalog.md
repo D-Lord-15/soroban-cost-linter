@@ -47,5 +47,6 @@ This document provides a concise reference for all lints supported by **soroban-
 | `option_wrapping_in_storage` | warn | stores an Option<T> in storage where the key already models absence | [Link](lints/option_wrapping_in_storage.md) |
 | `ledger_context_read_in_loop` | warn | reads a ledger context value inside a loop when it cannot change during the invocation | [Link](lints/ledger_context_read_in_loop.md) |
 | `redundant_require_auth` | warn | require_auth called more than once on the same address in a single function body | [Link](lints/redundant_require_auth.md) |
+| `large_constant_array` | warn | embedding a large constant array in contract code | [Link](lints/large_constant_array.md) |
 
 *Severities can be overridden via `budget.toml`.*

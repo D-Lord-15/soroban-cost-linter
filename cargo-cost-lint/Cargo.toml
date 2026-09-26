@@ -2,12 +2,12 @@
 name = "cargo-cost-lint"
 version = "0.1.1"
 edition = "2024"
+description = "Cargo subcommand that runs Soroban cost lints and reports expensive smart contract patterns"
 license = "Apache-2.0"
 repository = "https://github.com/Tollcraft/soroban-cost-linter"
 readme = "../README.md"
 keywords = ["soroban", "stellar", "wasm", "linter", "cost", "cargo"]
 categories = ["development-tools:cargo-plugins"]
-publish = false
 
 [dependencies]
 clap = { version = "4.4", features = ["derive"] }

@@ -280,28 +280,44 @@ fn parse_toolchain_channel(toolchain_path: &Path) -> Result<String> {
 const DYLINT_VERSION_CONSTRAINT: &str = "^6.0.1";
 
 fn run() -> Result<()> {
-    // cargo-cost-lint is an internal workspace tool that embeds compile-time metadata,
-    // documentation explanations, and the pinned toolchain version directly from sibling
-    // workspace paths (`../soroban_cost_lints`, `../docs/lints`, and `../rust-toolchain`).
-    // It is not published independently to crates.io (`publish = false` in Cargo.toml).
+    // cargo-cost-lint embeds compile-time metadata, documentation explanations,
+    // and the pinned toolchain version. Inside the workspace these are read from
+    // their sources of truth (`../soroban_cost_lints/src/lib.rs`, `../docs/lints`
+    // and `../rust-toolchain`). `cargo package` only ships files inside this
+    // package, so a packaged crate reads the snapshot in `lint-data/` instead.
+    // `tests/lint_data_snapshot.rs` fails when the snapshot drifts from the
+    // workspace sources; `make sync-lint-data` refreshes it.
     let manifest_dir_str = env::var("CARGO_MANIFEST_DIR").map_err(|_| Error::MissingEnv)?;
     let manifest_dir = PathBuf::from(manifest_dir_str);
 
-    let lib_rs_path = manifest_dir.join("../soroban_cost_lints/src/lib.rs");
-    let docs_dir = manifest_dir.join("../docs/lints");
-    let toolchain_path = manifest_dir.join("../rust-toolchain");
-
-    println!("cargo:rerun-if-changed=../soroban_cost_lints/src/lib.rs");
-    println!("cargo:rerun-if-changed=../docs/lints");
-    println!("cargo:rerun-if-changed=../rust-toolchain");
+    let workspace_lib_rs = manifest_dir.join("../soroban_cost_lints/src/lib.rs");
+    let (lib_rs_path, docs_dir, toolchain_path, docs_rel) = if workspace_lib_rs.exists() {
+        println!("cargo:rerun-if-changed=../soroban_cost_lints/src/lib.rs");
+        println!("cargo:rerun-if-changed=../docs/lints");
+        println!("cargo:rerun-if-changed=../rust-toolchain");
+        (
+            workspace_lib_rs,
+            manifest_dir.join("../docs/lints"),
+            manifest_dir.join("../rust-toolchain"),
+            "../docs/lints",
+        )
+    } else {
+        println!("cargo:rerun-if-changed=lint-data");
+        (
+            manifest_dir.join("lint-data/lib.rs"),
+            manifest_dir.join("lint-data/docs"),
+            manifest_dir.join("lint-data/rust-toolchain"),
+            "lint-data/docs",
+        )
+    };
 
     if !lib_rs_path.exists() {
-        return Err(Error::Parse(
-            "cargo-cost-lint cannot be built outside the soroban-cost-linter workspace \
-             because it relies on compile-time metadata from sibling workspace crates. \
-             This crate is not intended for standalone publishing (publish = false)."
-                .to_string(),
-        ));
+        return Err(Error::Parse(format!(
+            "cargo-cost-lint needs lint metadata from either the soroban-cost-linter \
+             workspace (../soroban_cost_lints/src/lib.rs) or the bundled snapshot \
+             ({}), but neither was found",
+            lib_rs_path.display()
+        )));
     }
 
     let content = fs::read_to_string(&lib_rs_path).map_err(|e| {
@@ -390,7 +406,7 @@ fn run() -> Result<()> {
             )
         });
         // Notify cargo to re-run build.rs when any doc file changes
-        println!("cargo:rerun-if-changed=../docs/lints/{}.md", name);
+        println!("cargo:rerun-if-changed={}/{}.md", docs_rel, name);
         explanations.push((name.clone(), doc_content));
     }
 

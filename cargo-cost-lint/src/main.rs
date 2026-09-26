@@ -1113,42 +1113,6 @@ mod tests {
     }
 
     #[test]
-    fn lint_registry_json_matches_registered_lints() {
-        let registry_path = concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/../docs/lints/lint-registry.json"
-        );
-        let content = std::fs::read_to_string(registry_path)
-            .expect("lint-registry.json must exist and be readable");
-        let parsed: Vec<serde_json::Value> =
-            serde_json::from_str(&content).expect("lint-registry.json must be valid JSON");
-
-        let registered_names = LINT_NAMES
-            .iter()
-            .map(|s| s.to_string())
-            .collect::<std::collections::HashSet<_>>();
-        let registry_names = parsed
-            .iter()
-            .map(|entry| {
-                entry["name"]
-                    .as_str()
-                    .expect("name field must be string")
-                    .to_string()
-            })
-            .collect::<std::collections::HashSet<_>>();
-
-        assert_eq!(
-            registered_names, registry_names,
-            "lint-registry.json entries must match registered lints exactly"
-        );
-        assert_eq!(
-            parsed.len(),
-            registered_names.len(),
-            "lint-registry.json must have no duplicate entries"
-        );
-    }
-
-    #[test]
     fn test_valid_config() {
         let mut lints = std::collections::HashMap::new();
         lints.insert("soroban_storage_in_loop".to_string(), "deny".to_string());
